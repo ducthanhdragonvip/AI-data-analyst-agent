@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -56,3 +57,26 @@ class ArtifactOut(BaseModel):
 class DatabaseTableOut(BaseModel):
     table_schema: str
     table_name: str
+
+
+class MessageOut(BaseModel):
+    id: int
+    role: str
+    content: str
+    artifact_ids: list[int]
+    created_at: datetime
+
+
+class ConversationOut(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
+    last_message_at: datetime
+    message_count: int
+
+
+class ConversationDetailOut(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
+    messages: list[MessageOut]

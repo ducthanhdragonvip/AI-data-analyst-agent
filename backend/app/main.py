@@ -9,7 +9,18 @@ from sqlalchemy.future import select
 from app.config import get_settings
 from app.database import Base, engine, get_session
 from app.models import Artifact, Job
-from app.schemas import ArtifactOut, ChatRequest, CreateJobResponse, DatabaseTableOut, DatasetOut, JobOut, ReportRequest
+from app.schemas import (
+    ArtifactOut,
+    ChatRequest,
+    ConversationDetailOut,
+    ConversationOut,
+    CreateJobResponse,
+    DatabaseTableOut,
+    DatasetOut,
+    JobOut,
+    ReportRequest,
+)
+from app.services.conversations import delete_conversation, get_conversation_detail, list_recent_conversations
 from app.services.database_introspection import list_database_tables
 from app.services.datasets import DatasetService
 
@@ -44,6 +55,27 @@ async def list_datasets(session: AsyncSession = Depends(get_session)) -> list:
 @app.get("/database/tables", response_model=list[DatabaseTableOut])
 async def get_database_tables() -> list[dict]:
     return list_database_tables()
+
+
+@app.get("/conversations", response_model=list[ConversationOut])
+async def get_conversations(session: AsyncSession = Depends(get_session)) -> list[dict]:
+    return await list_recent_conversations(session)
+
+
+@app.get("/conversations/{conversation_id}", response_model=ConversationDetailOut)
+async def get_conversation(conversation_id: int, session: AsyncSession = Depends(get_session)) -> dict:
+    conversation = await get_conversation_detail(session, conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return conversation
+
+
+@app.delete("/conversations/{conversation_id}", status_code=204)
+async def remove_conversation(conversation_id: int, session: AsyncSession = Depends(get_session)) -> None:
+    deleted = await delete_conversation(session, conversation_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    await session.commit()
 
 
 @app.post("/datasets/upload", response_model=DatasetOut)

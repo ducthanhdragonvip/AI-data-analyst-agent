@@ -32,6 +32,29 @@ export type Artifact = {
   payload?: Record<string, unknown> | null;
 };
 
+export type ConversationSummary = {
+  id: number;
+  title: string;
+  created_at: string;
+  last_message_at: string;
+  message_count: number;
+};
+
+export type ConversationMessage = {
+  id: number;
+  role: "user" | "assistant" | "system";
+  content: string;
+  artifact_ids: number[];
+  created_at: string;
+};
+
+export type ConversationDetail = {
+  id: number;
+  title: string;
+  created_at: string;
+  messages: ConversationMessage[];
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, init);
   if (!response.ok) {
@@ -43,6 +66,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function listDatasets(): Promise<Dataset[]> {
   return request<Dataset[]>("/datasets");
+}
+
+export function listConversations(): Promise<ConversationSummary[]> {
+  return request<ConversationSummary[]>("/conversations");
+}
+
+export function getConversation(conversationId: number): Promise<ConversationDetail> {
+  return request<ConversationDetail>(`/conversations/${conversationId}`);
+}
+
+export async function deleteConversation(conversationId: number): Promise<void> {
+  const response = await fetch(`/api/conversations/${conversationId}`, { method: "DELETE" });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || response.statusText);
+  }
 }
 
 export function refreshPostgresTables(): Promise<Dataset[]> {

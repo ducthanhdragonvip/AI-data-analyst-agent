@@ -40,6 +40,31 @@ input {
   font-weight: 700;
 }
 
+.navButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.navButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid #334149;
+  border-radius: 6px;
+  background: #223039;
+  color: #f8faf7;
+  cursor: pointer;
+}
+
+.navButton.active {
+  border-color: #f4c542;
+  background: #f4c542;
+  color: #172026;
+}
+
 .uploadButton,
 .secondaryButton {
   display: inline-flex;
@@ -66,30 +91,64 @@ input {
   color: #172026;
 }
 
-.datasetList {
+.sectionLabel {
+  color: #bfd0c5;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.historyList {
   display: grid;
   gap: 8px;
   overflow: auto;
   padding-top: 8px;
 }
 
-.datasetItem {
+.historyItem {
   display: grid;
-  grid-template-columns: 18px 18px minmax(0, 1fr) auto 30px;
+  grid-template-columns: minmax(0, 1fr) 28px;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  width: 100%;
   padding: 10px;
   border: 1px solid #334149;
   border-radius: 6px;
   background: #223039;
+  color: #f8faf7;
 }
 
-.iconButton {
+.historyItem.active {
+  border-color: #f4c542;
+}
+
+.historyOpen {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.historyOpen strong,
+.historyOpen small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyOpen small {
+  color: #bfd0c5;
+}
+
+.historyDelete {
   display: inline-grid;
-  grid-column: 5;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border: 1px solid #485963;
   border-radius: 6px;
   background: #172026;
@@ -97,8 +156,42 @@ input {
   cursor: pointer;
 }
 
+.historyDelete:hover {
+  border-color: #f4c542;
+  color: #f4c542;
+}
+
+.dataList {
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+  padding: 22px;
+}
+
+.dataRow {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto 30px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #d9ded8;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.iconButton {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #b8c4bc;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #172026;
+  cursor: pointer;
+}
+
 .textButton {
-  grid-column: 4;
   min-height: 30px;
   padding: 0 8px;
   border: 1px solid #f4c542;
@@ -111,26 +204,31 @@ input {
 
 .iconButton:hover {
   border-color: #f4c542;
-  color: #f4c542;
+  color: #126b5a;
 }
 
-.datasetItem strong,
-.datasetItem small {
+.dataRow strong,
+.dataRow small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.datasetItem small {
-  color: #bfd0c5;
+.dataRow small {
+  color: #5c6b62;
 }
 
-.chatPanel {
+.chatPanel,
+.dataPanel {
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   min-width: 0;
   max-height: 100vh;
+}
+
+.dataPanel {
+  grid-template-rows: auto auto auto 1fr;
 }
 
 .chatHeader {
@@ -161,6 +259,31 @@ input {
   border-radius: 6px;
   background: #fff2f2;
   color: #842222;
+}
+
+.datasetStrip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 10px 22px;
+  border-bottom: 1px solid #d9ded8;
+  background: #f8faf7;
+}
+
+.datasetChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid #b8c4bc;
+  border-radius: 6px;
+  background: #ffffff;
+  white-space: nowrap;
+}
+
+.dataActions {
+  padding: 18px 22px 0;
 }
 
 .messages {
@@ -265,12 +388,13 @@ input {
   }
 
   .sidebar {
-    max-height: 260px;
+    max-height: 300px;
   }
 
-  .chatPanel {
+  .chatPanel,
+  .dataPanel {
     max-height: none;
-    min-height: calc(100vh - 260px);
+    min-height: calc(100vh - 300px);
   }
 
   .artifact,
