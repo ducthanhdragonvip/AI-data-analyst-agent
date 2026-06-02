@@ -46,22 +46,45 @@ class DatasetService:
         upload_path = self.settings.upload_dir / file_name
         upload_path.write_bytes(content)
         frame = read_tabular_file(upload_path)
-        table_name = await self._unique_table_name(sanitize_table_name(file_name))
-
-        engine = create_engine(self.settings.sync_database_url, pool_pre_ping=True)
-        frame.to_sql(table_name, engine, schema="public", if_exists="replace", index=False)
-
         profile = profile_dataframe(frame)
         dataset = Dataset(
             source_type="upload",
             display_name=file_name,
-            table_schema="public",
-            table_name=table_name,
+            table_schema=None,
+            table_name=None,
             file_name=file_name,
             row_count=profile["row_count"],
             profile=profile,
         )
         self.session.add(dataset)
+        await self.session.flush()
+        self.profile_store.upsert_dataset(dataset)
+        return dataset
+
+    async def import_upload_to_database(self, dataset_id: int) -> Dataset | None:
+        dataset = await self.session.get(Dataset, dataset_id)
+        if not dataset:
+            return None
+        if dataset.source_type != "upload":
+            raise ValueError("Only uploaded files can be saved to the database through this action")
+        if dataset.table_name:
+            return dataset
+        if not dataset.file_name:
+            raise ValueError("Uploaded dataset is missing its source file")
+
+        upload_path = self.settings.upload_dir / dataset.file_name
+        if not upload_path.exists():
+            raise ValueError("Uploaded source file is missing")
+
+        frame = read_tabular_file(upload_path)
+        table_name = await self._unique_table_name(sanitize_table_name(dataset.file_name))
+        engine = create_engine(self.settings.sync_database_url, pool_pre_ping=True)
+        frame.to_sql(table_name, engine, schema="public", if_exists="replace", index=False)
+
+        dataset.table_schema = "public"
+        dataset.table_name = table_name
+        dataset.row_count = len(frame)
+        dataset.profile = profile_dataframe(frame)
         await self.session.flush()
         self.profile_store.upsert_dataset(dataset)
         return dataset
@@ -103,7 +126,8 @@ class DatasetService:
 
         if dataset.source_type == "upload":
             remove_uploaded_file(self.settings.upload_dir, dataset.file_name)
-            self._drop_uploaded_table(dataset.table_schema, dataset.table_name)
+            if dataset.table_schema and dataset.table_name:
+                self._drop_uploaded_table(dataset.table_schema, dataset.table_name)
 
         self.profile_store.delete_dataset(dataset.id)
         await self.session.delete(dataset)

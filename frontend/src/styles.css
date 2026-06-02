@@ -75,7 +75,7 @@ input {
 
 .datasetItem {
   display: grid;
-  grid-template-columns: 18px 18px minmax(0, 1fr) 30px;
+  grid-template-columns: 18px 18px minmax(0, 1fr) auto 30px;
   align-items: center;
   gap: 8px;
   padding: 10px;
@@ -86,6 +86,7 @@ input {
 
 .iconButton {
   display: inline-grid;
+  grid-column: 5;
   place-items: center;
   width: 30px;
   height: 30px;
@@ -94,6 +95,18 @@ input {
   background: #172026;
   color: #f8faf7;
   cursor: pointer;
+}
+
+.textButton {
+  grid-column: 4;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid #f4c542;
+  border-radius: 6px;
+  background: #f4c542;
+  color: #172026;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .iconButton:hover {

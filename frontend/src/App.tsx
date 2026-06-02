@@ -11,6 +11,7 @@ import {
   deleteDataset,
   getArtifact,
   getJob,
+  importDatasetToDatabase,
   listDatasets,
   refreshPostgresTables,
   uploadDataset,
@@ -106,8 +107,15 @@ function App() {
 
   async function handleRefresh() {
     setError(null);
-    const refreshed = await refreshPostgresTables();
-    setDatasets(refreshed);
+    await refreshPostgresTables();
+    await loadDatasets();
+  }
+
+  async function handleImportDataset(datasetId: number) {
+    setError(null);
+    const imported = await importDatasetToDatabase(datasetId);
+    setDatasets((current) => current.map((dataset) => (dataset.id === imported.id ? imported : dataset)));
+    setSelectedDatasetIds((current) => [...new Set([...current, imported.id])]);
   }
 
   async function handleDeleteDataset(datasetId: number) {
@@ -167,8 +175,20 @@ function App() {
               <Database size={16} />
               <span>
                 <strong>{dataset.display_name}</strong>
-                <small>{dataset.row_count.toLocaleString()} rows</small>
+                <small>
+                  {dataset.row_count.toLocaleString()} rows
+                  {dataset.is_imported ? " saved to DB" : " local file"}
+                </small>
               </span>
+              {!dataset.is_imported && (
+                <button
+                  className="textButton"
+                  type="button"
+                  onClick={() => void handleImportDataset(dataset.id)}
+                >
+                  Save to DB
+                </button>
+              )}
               <button
                 className="iconButton"
                 type="button"

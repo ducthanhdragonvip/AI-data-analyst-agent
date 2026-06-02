@@ -5,6 +5,7 @@ Local/demo full-stack AI data analyst app using FastAPI, LangChain ReAct, GPT-4o
 ## What It Does
 
 - Upload CSV/XLSX files and register them as analyzable Postgres tables.
+- Uploaded files are staged first and can be analyzed from the local file. Data rows are written into Postgres only after clicking **Save to DB**.
 - Refresh local Postgres tables for analysis.
 - Chat with the agent in natural language.
 - Generate Plotly and Matplotlib chart artifacts.
@@ -83,7 +84,11 @@ Backend health: http://localhost:8000/healthz
 
 ## RAG Design
 
-ChromaDB indexes schema and profile context only: table names, column names, data types, row counts, summary stats, sample values, and prior insights. Calculations are performed with read-only SQL and pandas, not vector search.
+ChromaDB indexes schema and profile context only: table names, column names, data types, row counts, summary stats, sample values, and prior insights. Calculations are performed with pandas for staged local uploads and read-only SQL for datasets saved in Postgres.
+
+## Uploads
+
+Uploading a CSV/XLSX saves the source file under `backend/storage/uploads` and creates a staged dataset record with profile metadata. It does not create a Postgres data table. You can analyze, chart, and report on the staged file through pandas. Click **Save to DB** only when you want to load that file into a generated Postgres table such as `public.uploaded_sales`.
 
 ## Safety
 

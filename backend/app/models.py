@@ -13,12 +13,16 @@ class Dataset(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     source_type: Mapped[str] = mapped_column(String(32), nullable=False)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    table_schema: Mapped[str] = mapped_column(String(128), nullable=False, default="public")
-    table_name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    table_schema: Mapped[str | None] = mapped_column(String(128))
+    table_name: Mapped[str | None] = mapped_column(String(128), unique=True)
     file_name: Mapped[str | None] = mapped_column(String(255))
     row_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     profile: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    @property
+    def is_imported(self) -> bool:
+        return bool(self.table_name)
 
 
 class Conversation(Base):

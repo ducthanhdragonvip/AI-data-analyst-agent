@@ -12,6 +12,8 @@ from app.config import get_settings
 from app.models import Conversation, Dataset, Job, Message
 from app.services.artifacts import create_markdown_artifact, create_matplotlib_line_artifact, create_plotly_bar_artifact
 from app.services.chroma_service import ChromaProfileStore
+from app.services.dataframe_analysis import aggregate_for_chart, load_uploaded_frame, summarize_frame
+from app.services.database_introspection import list_database_tables_text
 from app.services.dataset_profile import profile_to_text
 from app.services.sql_runner import run_readonly_query
 
@@ -19,6 +21,7 @@ from app.services.sql_runner import run_readonly_query
 REACT_PROMPT = PromptTemplate.from_template(
     """You are an AI data analyst. Use the provided tools to inspect dataset context and run read-only analysis.
 Always cite the table and columns you used. If the user asks for a chart, describe the chart specification.
+Use list_database_tables when the user asks what tables exist. Do not send multiple SQL statements to run_readonly_sql.
 
 Tools:
 {tools}
@@ -110,13 +113,18 @@ class DataAnalystAgent:
             profile_to_text(dataset.display_name, dataset.table_schema, dataset.table_name, dataset.profile)
             for dataset in datasets
         )
+        local_summaries = "\n\n".join(self._local_dataset_summary(dataset) for dataset in datasets if not dataset.table_name)
         rag_hits = self.profile_store.search(question, dataset_ids=dataset_ids)
         rag_text = "\n\n".join(hit["document"] for hit in rag_hits)
         history_result = await self.session.execute(
             select(Message).where(Message.conversation_id == conversation_id).order_by(Message.created_at.desc()).limit(8)
         )
         history = "\n".join(f"{message.role}: {message.content}" for message in reversed(list(history_result.scalars())))
-        return f"Dataset profiles:\n{profile_text}\n\nRAG matches:\n{rag_text}\n\nRecent conversation:\n{history}"
+        return (
+            f"Dataset profiles:\n{profile_text}\n\n"
+            f"Local file analysis summaries:\n{local_summaries or 'No staged local files selected.'}\n\n"
+            f"RAG matches:\n{rag_text}\n\nRecent conversation:\n{history}"
+        )
 
     async def _datasets(self, dataset_ids: list[int]) -> list[Dataset]:
         if not dataset_ids:
@@ -124,6 +132,12 @@ class DataAnalystAgent:
             return list(result.scalars())
         result = await self.session.execute(select(Dataset).where(Dataset.id.in_(dataset_ids)))
         return list(result.scalars())
+
+    def _local_dataset_summary(self, dataset: Dataset) -> str:
+        if dataset.source_type != "upload" or not dataset.file_name:
+            return f"{dataset.display_name} is not saved to Postgres and has no local upload file available."
+        frame = load_uploaded_frame(self.settings.upload_dir, dataset.file_name)
+        return summarize_frame(dataset.display_name, frame)
 
     def _invoke_agent(self, question: str, context: str) -> str:
         if not self.settings.openai_api_key:
@@ -139,6 +153,11 @@ class DataAnalystAgent:
                 name="run_readonly_sql",
                 func=lambda sql: str(run_readonly_query(sql)),
                 description="Run a single read-only SQL SELECT query against Postgres. Input must be SQL.",
+            ),
+            Tool(
+                name="list_database_tables",
+                func=lambda _: list_database_tables_text(),
+                description="List all user tables in the connected Postgres database. Input is ignored.",
             ),
         ]
         llm = ChatOpenAI(model=self.settings.openai_model, api_key=self.settings.openai_api_key, temperature=0)
@@ -167,21 +186,27 @@ class DataAnalystAgent:
         if not x_column or not y_column:
             return []
 
-        if columns[x_column].get("semantic_type") == "datetime":
-            sql = (
-                f'SELECT date_trunc(\'month\', "{x_column}") AS "{x_column}", '
-                f'sum("{y_column}") AS "{y_column}" '
-                f'FROM "{dataset.table_name}" GROUP BY 1 ORDER BY 1'
-            )
+        if dataset.table_name:
+            if columns[x_column].get("semantic_type") == "datetime":
+                sql = (
+                    f'SELECT date_trunc(\'month\', "{x_column}") AS "{x_column}", '
+                    f'sum("{y_column}") AS "{y_column}" '
+                    f'FROM "{dataset.table_name}" GROUP BY 1 ORDER BY 1'
+                )
+            else:
+                sql = (
+                    f'SELECT "{x_column}", sum("{y_column}") AS "{y_column}" '
+                    f'FROM "{dataset.table_name}" GROUP BY "{x_column}" ORDER BY "{y_column}" DESC LIMIT 20'
+                )
+            rows = run_readonly_query(sql)
+            if not rows:
+                return []
+            frame = pd.DataFrame(rows)
+        elif dataset.source_type == "upload" and dataset.file_name:
+            source_frame = load_uploaded_frame(self.settings.upload_dir, dataset.file_name)
+            frame, x_column, y_column = aggregate_for_chart(source_frame, dataset.profile)
         else:
-            sql = (
-                f'SELECT "{x_column}", sum("{y_column}") AS "{y_column}" '
-                f'FROM "{dataset.table_name}" GROUP BY "{x_column}" ORDER BY "{y_column}" DESC LIMIT 20'
-            )
-        rows = run_readonly_query(sql)
-        if not rows:
             return []
-        frame = pd.DataFrame(rows)
         title = f"{dataset.display_name}: {y_column} by {x_column}"
         if "line" in question.lower() or "matplotlib" in question.lower():
             artifact = await create_matplotlib_line_artifact(

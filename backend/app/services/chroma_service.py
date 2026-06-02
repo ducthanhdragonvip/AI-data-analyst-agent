@@ -43,8 +43,9 @@ class ChromaProfileStore:
                 {
                     "dataset_id": dataset.id,
                     "display_name": dataset.display_name,
-                    "table_schema": dataset.table_schema,
-                    "table_name": dataset.table_name,
+                    "table_schema": dataset.table_schema or "",
+                    "table_name": dataset.table_name or "",
+                    "is_imported": bool(dataset.table_name),
                     "source_type": dataset.source_type,
                 }
             ],

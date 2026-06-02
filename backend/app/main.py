@@ -9,7 +9,8 @@ from sqlalchemy.future import select
 from app.config import get_settings
 from app.database import Base, engine, get_session
 from app.models import Artifact, Job
-from app.schemas import ArtifactOut, ChatRequest, CreateJobResponse, DatasetOut, JobOut, ReportRequest
+from app.schemas import ArtifactOut, ChatRequest, CreateJobResponse, DatabaseTableOut, DatasetOut, JobOut, ReportRequest
+from app.services.database_introspection import list_database_tables
 from app.services.datasets import DatasetService
 
 settings = get_settings()
@@ -40,6 +41,11 @@ async def list_datasets(session: AsyncSession = Depends(get_session)) -> list:
     return await DatasetService(session).list_datasets()
 
 
+@app.get("/database/tables", response_model=list[DatabaseTableOut])
+async def get_database_tables() -> list[dict]:
+    return list_database_tables()
+
+
 @app.post("/datasets/upload", response_model=DatasetOut)
 async def upload_dataset(file: UploadFile = File(...), session: AsyncSession = Depends(get_session)):
     content = await file.read()
@@ -47,6 +53,18 @@ async def upload_dataset(file: UploadFile = File(...), session: AsyncSession = D
         dataset = await DatasetService(session).ingest_upload(file.filename or "dataset.csv", content)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await session.commit()
+    return dataset
+
+
+@app.post("/datasets/{dataset_id}/import", response_model=DatasetOut)
+async def import_dataset_to_database(dataset_id: int, session: AsyncSession = Depends(get_session)):
+    try:
+        dataset = await DatasetService(session).import_upload_to_database(dataset_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
     await session.commit()
     return dataset
 

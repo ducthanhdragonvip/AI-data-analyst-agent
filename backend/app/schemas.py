@@ -7,8 +7,9 @@ class DatasetOut(BaseModel):
     id: int
     source_type: str
     display_name: str
-    table_schema: str
-    table_name: str
+    table_schema: str | None
+    table_name: str | None
+    is_imported: bool
     row_count: int
     profile: dict[str, Any]
 
@@ -50,3 +51,8 @@ class ArtifactOut(BaseModel):
     payload: dict[str, Any] | None = None
 
     model_config = {"from_attributes": True}
+
+
+class DatabaseTableOut(BaseModel):
+    table_schema: str
+    table_name: str

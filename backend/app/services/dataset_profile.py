@@ -61,10 +61,11 @@ def profile_dataframe(frame: pd.DataFrame) -> dict[str, Any]:
     return {"row_count": int(len(frame)), "columns": columns, "sample_rows": sample_rows}
 
 
-def profile_to_text(display_name: str, table_schema: str, table_name: str, profile: dict[str, Any]) -> str:
+def profile_to_text(display_name: str, table_schema: str | None, table_name: str | None, profile: dict[str, Any]) -> str:
+    table_ref = f"{table_schema}.{table_name}" if table_schema and table_name else "not saved to database yet"
     lines = [
         f"Dataset: {display_name}",
-        f"Table: {table_schema}.{table_name}",
+        f"Table: {table_ref}",
         f"Rows: {profile.get('row_count', 0)}",
         "Columns:",
     ]

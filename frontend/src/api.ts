@@ -4,8 +4,9 @@ export type Dataset = {
   id: number;
   source_type: string;
   display_name: string;
-  table_schema: string;
-  table_name: string;
+  table_schema: string | null;
+  table_name: string | null;
+  is_imported: boolean;
   row_count: number;
   profile: Record<string, unknown>;
 };
@@ -52,6 +53,10 @@ export function uploadDataset(file: File): Promise<Dataset> {
   const body = new FormData();
   body.append("file", file);
   return request<Dataset>("/datasets/upload", { method: "POST", body });
+}
+
+export function importDatasetToDatabase(datasetId: number): Promise<Dataset> {
+  return request<Dataset>(`/datasets/${datasetId}/import`, { method: "POST" });
 }
 
 export async function deleteDataset(datasetId: number): Promise<void> {
