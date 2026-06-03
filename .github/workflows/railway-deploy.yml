@@ -12,24 +12,17 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy web and worker
+    name: Deploy demo service
     runs-on: ubuntu-latest
     if: ${{ vars.RAILWAY_DEPLOY_ENABLED == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
         run: npm install -g @railway/cli
-      - name: Deploy web service
+      - name: Deploy Railway service
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_ENVIRONMENT: ${{ vars.RAILWAY_ENVIRONMENT || 'production' }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_WEB_SERVICE_ID }}
-        run: railway up --ci --project "$RAILWAY_PROJECT_ID" --environment "$RAILWAY_ENVIRONMENT" --service "$RAILWAY_SERVICE_ID"
-      - name: Deploy worker service
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
-          RAILWAY_ENVIRONMENT: ${{ vars.RAILWAY_ENVIRONMENT || 'production' }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_WORKER_SERVICE_ID }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
         run: railway up --ci --project "$RAILWAY_PROJECT_ID" --environment "$RAILWAY_ENVIRONMENT" --service "$RAILWAY_SERVICE_ID"

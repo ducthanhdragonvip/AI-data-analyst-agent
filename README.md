@@ -4,7 +4,7 @@ Full-stack AI data analyst app with FastAPI, LangGraph, ChromaDB business knowle
 
 ## Local Docker Run
 
-Copy environment values, then start Postgres, the web app, and the worker:
+Copy environment values, then start Postgres and the demo app service:
 
 ```powershell
 Copy-Item .env.example .env
@@ -23,7 +23,7 @@ Health check:
 http://localhost:8000/healthz
 ```
 
-The Docker web container serves the built React frontend and FastAPI API. The worker container runs `python -m src.worker.main`.
+The Docker app service serves the built React frontend, FastAPI API, and polling worker in one container for demo deployment.
 
 ## Local Non-Docker Run
 
@@ -63,28 +63,21 @@ Frontend dev URL: `http://localhost:5173`
 
 ## Railway Deployment
 
-Create three Railway services:
+Create two Railway services:
 
 - Postgres database service
-- Web service from this repo using `Dockerfile`
-- Worker service from this repo using the same `Dockerfile`
+- App service from this repo using `Dockerfile`
 
-Web service:
+App service:
 
 - Start command can use the Dockerfile default:
   ```sh
-  uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}
+  python -m src.run_demo
   ```
 - Public networking should target the Railway-provided `PORT`.
 - Healthcheck path: `/healthz`
 
-Worker service:
-
-```sh
-python -m src.worker.main
-```
-
-Recommended Railway variables for both web and worker:
+Recommended Railway variables:
 
 ```text
 DATABASE_URL=${{ Postgres.DATABASE_URL }}
@@ -100,7 +93,7 @@ CORS_ORIGINS=["https://your-web-domain.up.railway.app"]
 
 The app normalizes Railway `postgresql://...` URLs into SQLAlchemy async and sync URLs internally. `SYNC_DATABASE_URL` is optional on Railway.
 
-For persistent uploads/artifacts/Chroma data, attach a Railway volume to the web and worker services and mount it at `/app/backend/storage`.
+For persistent uploads/artifacts/Chroma data, attach a Railway volume to the app service and mount it at `/app/backend/storage`.
 
 ## GitHub Actions CI/CD
 
@@ -127,8 +120,7 @@ Required GitHub secrets:
 ```text
 RAILWAY_TOKEN
 RAILWAY_PROJECT_ID
-RAILWAY_WEB_SERVICE_ID
-RAILWAY_WORKER_SERVICE_ID
+RAILWAY_SERVICE_ID
 ```
 
 Required GitHub variable:

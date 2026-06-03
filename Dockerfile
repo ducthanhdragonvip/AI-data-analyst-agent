@@ -31,4 +31,4 @@ COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
 WORKDIR /app/backend
 EXPOSE 8000
 
-CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["python", "-m", "src.run_demo"]
