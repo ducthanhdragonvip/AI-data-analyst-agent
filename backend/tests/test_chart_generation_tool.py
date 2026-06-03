@@ -91,3 +91,48 @@ async def test_chart_generation_tool_uses_requested_columns_and_mean_aggregation
     assert session.added[0].payload["data"][0]["x"] == ["3", "2"]
     assert session.added[0].payload["data"][0]["y"] == [750, 250]
     assert session.added[0].payload["layout"]["title"] == "houses.csv: average price by rooms"
+
+
+@pytest.mark.asyncio
+async def test_chart_generation_tool_supports_multiple_room_columns(tmp_path) -> None:
+    upload = tmp_path / "houses.csv"
+    upload.write_text(
+        "bedrooms,bathrooms,guestroom,price\n2,1,no,200\n2,2,yes,300\n3,2,no,600\n3,3,yes,900\n",
+        encoding="utf-8",
+    )
+    dataset = Dataset(
+        id=2,
+        source_type="upload",
+        display_name="houses.csv",
+        table_schema=None,
+        table_name=None,
+        file_name="houses.csv",
+        row_count=4,
+        profile={
+            "row_count": 4,
+            "columns": {
+                "bedrooms": {"dtype": "int64", "semantic_type": "numeric"},
+                "bathrooms": {"dtype": "int64", "semantic_type": "numeric"},
+                "guestroom": {"dtype": "object", "semantic_type": "categorical"},
+                "price": {"dtype": "int64", "semantic_type": "numeric"},
+            },
+        },
+    )
+    session = FakeSession()
+
+    async def get(model, object_id):
+        return dataset if model is Dataset and object_id == dataset.id else None
+
+    session.get = get
+
+    result = await ChartGenerationTool(session, upload_dir=tmp_path, job_id=43).generate_chart(
+        dataset_id=2,
+        chart_type="bar",
+        x=["bedrooms", "bathrooms", "guestroom"],
+        y="price",
+        aggregation="mean",
+    )
+
+    assert result["status"] == "ok"
+    assert [trace["name"] for trace in session.added[0].payload["data"]] == ["bedrooms", "bathrooms", "guestroom"]
+    assert session.added[0].payload["layout"]["title"] == "houses.csv: average price by room-related fields"

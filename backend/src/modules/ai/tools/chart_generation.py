@@ -49,6 +49,8 @@ class ChartGenerationTool:
         dataset = await self.session.get(Dataset, dataset_id)
         if not dataset:
             return tool_result("generate_chart", "error", "Dataset not found")
+        if isinstance(x, list):
+            return await self._generate_multi_x_chart(dataset, x, y, aggregation)
         chart_frame, x_column, y_column = self._chart_frame(dataset, x=x, y=y, aggregation=aggregation)
         if chart_frame is None or not x_column or not y_column:
             return tool_result("generate_chart", "error", "Dataset needs one dimension and one numeric metric")
@@ -65,6 +67,59 @@ class ChartGenerationTool:
             "generate_chart",
             "ok",
             f"Created chart artifact {artifact.id}.",
+            {"artifact": {"id": artifact.id, "kind": artifact.kind, "payload": artifact.payload}},
+            [artifact.id],
+        )
+
+    async def _generate_multi_x_chart(
+        self,
+        dataset: Dataset,
+        x_columns: list[str],
+        y_column: str | None,
+        aggregation: str,
+    ) -> dict:
+        if not y_column:
+            return tool_result("generate_chart", "error", "A metric column is required for multi-column charts")
+        frames = []
+        for x_column in x_columns:
+            chart_frame, resolved_x, resolved_y = self._chart_frame(dataset, x=x_column, y=y_column, aggregation=aggregation)
+            if chart_frame is None or not resolved_x or not resolved_y:
+                continue
+            frames.append((resolved_x, resolved_y, chart_frame))
+        if not frames:
+            return tool_result("generate_chart", "error", "No requested room-related columns could be charted")
+
+        title = self._multi_title(dataset.display_name, y_column, aggregation)
+        payload = {
+            "data": [
+                {
+                    "type": "bar",
+                    "name": x_column,
+                    "x": frame[x_column].astype(str).tolist(),
+                    "y": frame[y_column].tolist(),
+                }
+                for x_column, y_column, frame in frames
+            ],
+            "layout": {
+                "title": title,
+                "xaxis": {"title": "room-related values"},
+                "yaxis": {"title": self._aggregation_label(y_column, aggregation)},
+                "barmode": "group",
+            },
+        }
+        artifact = Artifact(
+            job_id=self._required_job_id(),
+            kind="plotly",
+            title=title,
+            mime_type="application/json",
+            payload=payload,
+        )
+        self.session.add(artifact)
+        await self.session.flush()
+        return tool_result(
+            "generate_chart",
+            "ok",
+            f"Created multi-column chart artifact {artifact.id}.",
             {"artifact": {"id": artifact.id, "kind": artifact.kind, "payload": artifact.payload}},
             [artifact.id],
         )
@@ -129,3 +184,9 @@ class ChartGenerationTool:
         if aggregation == "count":
             return f"{display_name}: {label}"
         return f"{display_name}: {label} by {x_column}"
+
+    def _multi_title(self, display_name: str, y_column: str, aggregation: str) -> str:
+        return f"{display_name}: {self._aggregation_label(y_column, aggregation)} by room-related fields"
+
+    def _aggregation_label(self, y_column: str, aggregation: str) -> str:
+        return {"sum": y_column, "mean": f"average {y_column}", "count": "count"}[aggregation]

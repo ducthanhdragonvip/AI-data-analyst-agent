@@ -33,3 +33,52 @@ def test_report_job_plans_report_tool() -> None:
     calls = plan_tool_calls("Create report", [dataset], "report")
 
     assert [call["name"] for call in calls] == ["get_dataset_schema", "describe_dataset", "create_markdown_report"]
+
+
+def test_chart_question_prefers_rooms_over_bedrooms_when_user_asks_for_room() -> None:
+    dataset = Dataset(
+        id=6,
+        source_type="upload",
+        display_name="house.csv",
+        row_count=3,
+        profile={
+            "columns": {
+                "bedrooms": {"semantic_type": "numeric"},
+                "rooms": {"semantic_type": "numeric"},
+                "price": {"semantic_type": "numeric"},
+            }
+        },
+    )
+
+    calls = plan_tool_calls("draw house price demand on room", [dataset], "analysis")
+
+    assert calls[1]["name"] == "generate_chart"
+    assert calls[1]["arguments"]["x"] == "rooms"
+    assert calls[1]["arguments"]["y"] == "price"
+
+
+def test_chart_question_about_all_rooms_plans_all_room_related_columns() -> None:
+    dataset = Dataset(
+        id=9,
+        source_type="upload",
+        display_name="house-price.csv",
+        row_count=545,
+        profile={
+            "columns": {
+                "price": {"semantic_type": "numeric"},
+                "area": {"semantic_type": "numeric"},
+                "bedrooms": {"semantic_type": "numeric"},
+                "bathrooms": {"semantic_type": "numeric"},
+                "stories": {"semantic_type": "numeric"},
+                "guestroom": {"semantic_type": "categorical"},
+                "basement": {"semantic_type": "categorical"},
+            }
+        },
+    )
+
+    calls = plan_tool_calls("draw house price demand on all of the room", [dataset], "analysis")
+
+    assert calls[1]["name"] == "generate_chart"
+    assert calls[1]["arguments"]["x"] == ["bedrooms", "bathrooms", "guestroom"]
+    assert calls[1]["arguments"]["y"] == "price"
+    assert calls[1]["arguments"]["aggregation"] == "mean"

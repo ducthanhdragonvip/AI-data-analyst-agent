@@ -82,8 +82,14 @@ def plan_tool_calls(question: str, datasets: list[Dataset], job_type: str) -> li
     return calls
 
 
-def _chart_columns(question_lower: str, dataset: Dataset) -> tuple[str | None, str | None]:
+def _chart_columns(question_lower: str, dataset: Dataset) -> tuple[str | list[str] | None, str | None]:
     columns = dataset.profile.get("columns", {})
+    if _asks_for_all_rooms(question_lower):
+        room_columns = _room_related_columns(columns)
+        y_column = _price_column(columns)
+        if room_columns:
+            return room_columns, y_column
+
     matched = [_column_name for _column_name in columns if _mentions_column(question_lower, _column_name)]
     numeric = [name for name, meta in columns.items() if meta.get("semantic_type") == "numeric"]
     dimensions = [
@@ -129,3 +135,16 @@ def _looks_like_dimension(column_name: str) -> bool:
 def _looks_like_metric(column_name: str) -> bool:
     name = column_name.lower()
     return any(token in name for token in ("price", "amount", "revenue", "sales", "cost", "value", "total"))
+
+
+def _asks_for_all_rooms(question_lower: str) -> bool:
+    return any(token in question_lower for token in ("all room", "all of the room", "all rooms", "all of rooms"))
+
+
+def _room_related_columns(columns: dict) -> list[str]:
+    return [name for name in columns if "room" in name.lower()]
+
+
+def _price_column(columns: dict) -> str | None:
+    numeric = [name for name, meta in columns.items() if meta.get("semantic_type") == "numeric"]
+    return next((name for name in numeric if "price" in name.lower()), None)
