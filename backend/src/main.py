@@ -1,7 +1,12 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from src.core.config import get_settings
+from src.core.config import REPO_DIR
 from src.core.database import Base, engine
 from src.modules.api.routes import artifacts, conversations, datasets, jobs, knowledge
 
@@ -28,8 +33,20 @@ async def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
-app.include_router(datasets.router)
-app.include_router(conversations.router)
-app.include_router(jobs.router)
-app.include_router(artifacts.router)
-app.include_router(knowledge.router)
+ROUTERS = [datasets.router, conversations.router, jobs.router, artifacts.router, knowledge.router]
+for router in ROUTERS:
+    app.include_router(router)
+    app.include_router(router, prefix="/api")
+
+frontend_dist = REPO_DIR / "frontend" / "dist"
+if frontend_dist.exists():
+    assets_dir = frontend_dist / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    async def serve_spa(path: str) -> FileResponse:
+        requested = (frontend_dist / path).resolve()
+        if path and requested.exists() and frontend_dist.resolve() in requested.parents:
+            return FileResponse(requested)
+        return FileResponse(frontend_dist / "index.html")

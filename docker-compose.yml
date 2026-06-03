@@ -16,5 +16,56 @@ services:
       timeout: 5s
       retries: 10
 
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-data-analyst-web
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://analyst:analyst@postgres:5432/analyst
+      SYNC_DATABASE_URL: postgresql+psycopg://analyst:analyst@postgres:5432/analyst
+      CORS_ORIGINS: '["http://localhost:8000","http://localhost:5173"]'
+      STORAGE_DIR: /app/backend/storage
+      UPLOAD_DIR: /app/backend/storage/uploads
+      ARTIFACT_DIR: /app/backend/storage/artifacts
+      CHROMA_PATH: /app/backend/storage/chroma
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - app_storage:/app/backend/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-data-analyst-worker
+    command: ["python", "-m", "src.worker.main"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://analyst:analyst@postgres:5432/analyst
+      SYNC_DATABASE_URL: postgresql+psycopg://analyst:analyst@postgres:5432/analyst
+      STORAGE_DIR: /app/backend/storage
+      UPLOAD_DIR: /app/backend/storage/uploads
+      ARTIFACT_DIR: /app/backend/storage/artifacts
+      CHROMA_PATH: /app/backend/storage/chroma
+    volumes:
+      - app_storage:/app/backend/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:
+  app_storage:

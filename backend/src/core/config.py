@@ -2,6 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from pydantic import Field
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -10,7 +11,7 @@ REPO_DIR = BACKEND_DIR.parent
 
 class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://analyst:analyst@localhost:5432/analyst"
-    sync_database_url: str = "postgresql+psycopg://analyst:analyst@localhost:5432/analyst"
+    sync_database_url: str | None = None
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1-mini"
     embedding_model: str = "text-embedding-3-small"
@@ -21,6 +22,15 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
 
     model_config = SettingsConfigDict(env_file=REPO_DIR / ".env", env_file_encoding="utf-8", extra="ignore")
+
+    @model_validator(mode="after")
+    def normalize_database_urls(self) -> "Settings":
+        self.database_url = _normalize_postgres_url(self.database_url, "async")
+        if self.sync_database_url:
+            self.sync_database_url = _normalize_postgres_url(self.sync_database_url, "sync")
+        else:
+            self.sync_database_url = _normalize_postgres_url(self.database_url, "sync")
+        return self
 
     def ensure_storage(self) -> None:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
@@ -34,3 +44,25 @@ def get_settings() -> Settings:
     settings = Settings()
     settings.ensure_storage()
     return settings
+
+
+def _normalize_postgres_url(url: str, mode: str) -> str:
+    if mode == "async":
+        if url.startswith("postgresql+asyncpg://"):
+            return url
+        if url.startswith("postgresql+psycopg://"):
+            return "postgresql+asyncpg://" + url.split("://", 1)[1]
+        if url.startswith("postgresql://"):
+            return "postgresql+asyncpg://" + url.split("://", 1)[1]
+        if url.startswith("postgres://"):
+            return "postgresql+asyncpg://" + url.split("://", 1)[1]
+    if mode == "sync":
+        if url.startswith("postgresql+psycopg://"):
+            return url
+        if url.startswith("postgresql+asyncpg://"):
+            return "postgresql+psycopg://" + url.split("://", 1)[1]
+        if url.startswith("postgresql://"):
+            return "postgresql+psycopg://" + url.split("://", 1)[1]
+        if url.startswith("postgres://"):
+            return "postgresql+psycopg://" + url.split("://", 1)[1]
+    return url

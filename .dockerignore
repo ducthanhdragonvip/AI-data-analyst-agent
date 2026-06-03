@@ -1,0 +1,14 @@
+.git
+.github
+.vscode
+.env
+backend/.venv
+backend/.pytest_cache
+backend/storage
+backend/**/__pycache__
+frontend/node_modules
+frontend/dist
+frontend/*.tsbuildinfo
+storage
+*.pyc
+npm-debug.log*

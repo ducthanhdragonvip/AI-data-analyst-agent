@@ -25,7 +25,9 @@ def test_healthz_and_metadata_endpoints_match_frontend_contract() -> None:
 
     assert client.get("/healthz").json() == {"status": "ok"}
     assert client.get("/jobs/1").json()["status"] == "pending"
+    assert client.get("/api/jobs/1").json()["status"] == "pending"
     assert client.get("/artifacts/1/metadata").json()["title"] == "Chart"
+    assert client.get("/api/artifacts/1/metadata").json()["title"] == "Chart"
     assert client.get("/jobs/404").status_code == 404
 
     app.dependency_overrides.clear()
